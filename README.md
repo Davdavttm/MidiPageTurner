@@ -1,27 +1,27 @@
 # MIDI Page Turner
 
-<a href='//www.microsoft.com/store/apps/9P45KBXVTC9J?cid=storebadge&ocid=badge'><img src='https://developer.microsoft.com/store/badges/images/English_get-it-from-MS.png' alt='English badge' style='width: 150px;'/></a>
-
-Using MIDI Page Turner, you can turn the pages of your PDF reader on your Windows tablet by using the pedals of a digital piano.
-
-<p align="center">
-  <img src="https://i.imgur.com/8KWpmEC.png" width="400px"/>
-</p>
+With the original project by jacbz, 
+I made and still make some customization to hopefully make this app usable with any MIDI device sending MIDI Note on/off or Control Change messages.
 
 ## Getting started
 
-1. Connect your piano to your Windows tablet using USB or Bluetooth MIDI
-2. Select which pedal you would like to use to turn the page (defaults to left pedal to turn forward and middle pedal to turn backward)
-3. Select which keyboard action should be triggered to turn the page (defaults to arrow keys)
-4. Press "Start". The indicator should turn green.
+1. Connect your Device to your Windows tablet using USB or Bluetooth MIDI
+2. Press "Start". The indicator should turn green.
 
-## Contributing
+## Configuring
 
-Any contributions are greatly appreciated, whether directly through a pull request, or by opening a new issue.
+1. For both inputs, click "Capture MIDI Event", then press the key on your MIDI device you want to turn page forward/backwards with. (Or keep previously saved settings)
+2. Select the keyboard key used to turn page forward/backward in your note viewer app
+3. Switch to your note viewer app
 
-1. Fork the project and install Visual Studio
-2. Create a new branch with your changes
-3. Push to the branch and open a pull request
+## Planned
+
+1. Implement debouncing for analog inputs
+2. Implement "Invert function" feature (is by now just a checkbox with no function)
+2. Save settings on configured "turn page" key presses
+3. Implement configurable repeated key presses for flexibility (to e.g. scroll only half a page)
+4. Implement option to simulate touch input drag as page turn/scroll? option
+5. Implement option to simulate repeated mouse wheel up/down as a page turn/scroll? option
 
 ## License
 

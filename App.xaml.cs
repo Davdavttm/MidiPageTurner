@@ -52,7 +52,7 @@ namespace MidiPageTurner
             }
 
             var width = 500;
-            var height = 740;
+            var height = 720;
             ApplicationView.GetForCurrentView().SetPreferredMinSize(new Size(width, height));
             ApplicationView.PreferredLaunchViewSize = new Size(width, height);
             ApplicationView.PreferredLaunchWindowingMode = ApplicationViewWindowingMode.PreferredLaunchViewSize;
