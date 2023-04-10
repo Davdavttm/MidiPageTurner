@@ -37,7 +37,7 @@ limitations under the License.
 
         <Grid Margin="0,0,0,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="30"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -46,20 +46,33 @@ limitations under the License.
                     <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xe945;" FontSize="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
                     <TextBlock>MIDI Trigger 1</TextBlock>
                 </StackPanel>
-                <ListBox x:Name="MidiTriggerListBox1" SelectedIndex="0" SelectionChanged="MidiTriggerListBox1_SelectionChanged">
-                    <ListBoxItem>Soft Pedal (Left)</ListBoxItem>
-                    <ListBoxItem>Sostenuto Pedal (Middle)</ListBoxItem>
-                    <ListBoxItem>Sustain Pedal (Right)</ListBoxItem>
-                </ListBox>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Current Event: " Margin="0, 0, 10, 0"/>
+                    <TextBlock x:Name="TextBlockMidiEvent1" Text="No Event Selected" />
+                </StackPanel>
+                <Button Content="Capture MIDI Event"
+                        Click="CaptureButton1Clicked"
+                        ClickMode="Press"
+                        Margin="0, 0, 0, 4"/>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Pressed: " Margin="0, 0, 4, 0"/>
+                    <Rectangle x:Name="InputIndicator1" Height="14" Width="14" RadiusX="7" RadiusY="7" Fill="{x:Bind _inactiveBrush}" HorizontalAlignment="Left" RelativePanel.AlignVerticalCenterWithPanel="True"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Value: " Margin="0, 0, 4, 0"/>
+                    <TextBlock Text="0" x:Name="TextBlockInputValue1" />
+                </StackPanel>
+                <CheckBox Content="Invert function" x:Name="CheckBoxInvertedInput1"/>
             </StackPanel>
             <TextBlock Grid.Column="1" FontFamily="Segoe MDL2 Assets" Text="&#xe76c;" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20"/>
-            <StackPanel Grid.Column="2">
+            <StackPanel Grid.Column="2" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                     <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xeb9d;" FontSize="16" VerticalAlignment="Center" Margin="0,2,4,0"/>
                     <TextBlock>Page Turn Forward Key</TextBlock>
                 </StackPanel>
-                <ListBox x:Name="PageTurnKeyListBox1" SelectedIndex="0">
+                <ListBox x:Name="PageTurnKeyListBox1" SelectedIndex="0" SelectionChanged="PageTurnKeyListBox1_SelectionChanged">
                     <ListBoxItem>Right Arrow Key</ListBoxItem>
+                    <ListBoxItem>Down Arrow Key</ListBoxItem>
                     <ListBoxItem>Page Down</ListBoxItem>
                     <ListBoxItem>Space Bar</ListBoxItem>
                 </ListBox>
@@ -68,7 +81,7 @@ limitations under the License.
 
         <Grid Margin="0,0,0,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="30"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -77,11 +90,23 @@ limitations under the License.
                     <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xe945;" FontSize="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
                     <TextBlock>MIDI Trigger 2</TextBlock>
                 </StackPanel>
-                <ListBox x:Name="MidiTriggerListBox2" SelectedIndex="1" SelectionChanged="MidiTriggerListBox2_SelectionChanged">
-                    <ListBoxItem>Soft Pedal (Left)</ListBoxItem>
-                    <ListBoxItem>Sostenuto Pedal (Middle)</ListBoxItem>
-                    <ListBoxItem>Sustain Pedal (Right)</ListBoxItem>
-                </ListBox>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Current Event: " Margin="0, 0, 10, 0"/>
+                    <TextBlock x:Name="TextBlockMidiEvent2" Text="No Event Selected" />
+                </StackPanel>
+                <Button Content="Capture MIDI Event"
+                        Click="CaptureButton2Clicked"
+                        ClickMode="Press"
+                        Margin="0, 0, 0, 4"/>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Pressed: " Margin="0, 0, 4, 0"/>
+                    <Rectangle x:Name="InputIndicator2" Height="14" Width="14" RadiusX="7" RadiusY="7" Fill="{x:Bind _inactiveBrush}" HorizontalAlignment="Left" RelativePanel.AlignVerticalCenterWithPanel="True"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0, 0, 0, 4">
+                    <TextBlock Text="Value: " Margin="0, 0, 4, 0"/>
+                    <TextBlock Text="0" x:Name="TextBlockInputValue2" />
+                </StackPanel>
+                <CheckBox Content="Invert function" x:Name="CheckBoxInvertedInput2"/>
             </StackPanel>
             <TextBlock Grid.Column="1" FontFamily="Segoe MDL2 Assets" Text="&#xe76c;" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20"/>
             <StackPanel Grid.Column="2">
@@ -89,8 +114,9 @@ limitations under the License.
                     <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xeb9e;" FontSize="16" VerticalAlignment="Center" Margin="0,2,4,0"/>
                     <TextBlock>Page Turn Backward Key</TextBlock>
                 </StackPanel>
-                <ListBox x:Name="PageTurnKeyListBox2" SelectedIndex="0">
+                <ListBox x:Name="PageTurnKeyListBox2" SelectedIndex="0" SelectionChanged="PageTurnKeyListBox2_SelectionChanged">
                     <ListBoxItem>Left Arrow Key</ListBoxItem>
+                    <ListBoxItem>Up Arrow Key</ListBoxItem>
                     <ListBoxItem>Page Up</ListBoxItem>
                     <ListBoxItem>Shift + Space Bar</ListBoxItem>
                 </ListBox>

@@ -25,26 +25,54 @@ using Windows.UI.Core;
 using Windows.UI.Input.Preview.Injection;
 using Windows.UI.Notifications;
 using Windows.UI.Xaml.Media;
+using Windows.Storage;
 
 namespace MidiPageTurner
 {
+    enum MidiEventType : byte
+    {
+        NONE,
+        NOTEONOFF,
+        CONTROLCHANGE
+    };
+
     public sealed partial class MainPage : Page
     {
+        ApplicationDataContainer _LocalSettings = ApplicationData.Current.LocalSettings;
+
         private string _deviceSelectorString;
         public DeviceInformationCollection DeviceInformationCollection { get; set; }
         private MidiInPort _midiInPort;
         private string _currentDevice;
 
         private readonly InputInjector _inputInjector;
+
         private readonly byte _triggerThreshold = 20;
-        private readonly byte[] _midiTriggerOptions = { 67, 66, 64 };
+
+        // Minimum and maximum values for transmitted midi signal, depending on type
+        private readonly byte[] _minValues = { 0, 0, 0 };
+        private readonly byte[] _maxValues = { 0, 100, 127 };
+
         private readonly VirtualKey[][] _pageTurnKeyOptions1 =
-            {new[] {VirtualKey.Right}, new[] {VirtualKey.PageDown}, new[] {VirtualKey.Space}};
+            {new[] {VirtualKey.Right}, new[] {VirtualKey.Down}, new[] {VirtualKey.PageDown}, new[] {VirtualKey.Space}};
 
         private readonly VirtualKey[][] _pageTurnKeyOptions2 =
-            {new[] {VirtualKey.Left}, new[] {VirtualKey.PageUp}, new[] {VirtualKey.Shift, VirtualKey.Space}};
-        private byte _currentMidiTrigger1;
-        private byte _currentMidiTrigger2;
+            {new[] {VirtualKey.Left}, new[] {VirtualKey.Up}, new[] {VirtualKey.PageUp}, new[] {VirtualKey.Shift, VirtualKey.Space}};
+
+        private byte _currentMidiTriggerChannel1 = 0;
+        private MidiEventType _currentMidiTriggerEvent1 = MidiEventType.NONE;
+        private byte _debounceActivateInput1 = 0;
+        private byte _debounceDeactivateInput1 = 0;
+        private bool _capturingMidiInput1 = false;
+        private string _displayString1 = "";
+
+        private byte _currentMidiTriggerChannel2 = 0;
+        private MidiEventType _currentMidiTriggerEvent2 = MidiEventType.NONE;
+        private byte _debounceActivateInput2 = 0;
+        private byte _debounceDeactivateInput2 = 0;
+        private bool _capturingMidiInput2 = false;
+        private string _displayString2 = "";
+
         private VirtualKey[] _currentPageTurnKey1;
         private VirtualKey[] _currentPageTurnKey2;
 
@@ -59,6 +87,12 @@ namespace MidiPageTurner
             InitDeviceWatcher();
             _inputInjector = InputInjector.TryCreate();
             SetBadge("unavailable");
+
+            // uncomment if saved settings get messed up
+            //ResetSettings();
+
+            LoadSettings();
+            SetDisplayStrings();
         }
 
         public void InitDeviceWatcher()
@@ -121,38 +155,191 @@ namespace MidiPageTurner
             MidiInListBox.IsEnabled = true;
         }
 
-        private void MidiInPort_MessageReceived(MidiInPort sender, MidiMessageReceivedEventArgs args)
+        private async void MidiInPort_MessageReceived(MidiInPort sender, MidiMessageReceivedEventArgs args)
         {
             var receivedMidiMessage = args.Message;
-            if (DateTime.Now - _lastTriggerTime < _cooldown ||
-                !(receivedMidiMessage is MidiControlChangeMessage controlChangeMessage) ||
-                controlChangeMessage.ControlValue < _triggerThreshold ||
-                (controlChangeMessage.Controller != _currentMidiTrigger1 &&
-                controlChangeMessage.Controller != _currentMidiTrigger2)) return;
 
-            var pageTurnKeys = controlChangeMessage.Controller == _currentMidiTrigger1
-                ? _currentPageTurnKey1
-                : _currentPageTurnKey2;
+            // Find message Type and Channel
+
+            MidiEventType msgEventType = MidiEventType.NONE;
+            byte msgChannel = 0;
+            byte msgValue = 0;
+            String msgModeDesc = "";
+            String msgModeSpec = "";
+
+            if (receivedMidiMessage is MidiControlChangeMessage controlChangeMessage)
+            {
+                msgEventType = MidiEventType.CONTROLCHANGE;
+                msgChannel = controlChangeMessage.Controller;
+                msgValue = controlChangeMessage.ControlValue;
+                msgModeDesc = "Control Change";
+                msgModeSpec = "Channel";
+            }
+
+            if (receivedMidiMessage is MidiNoteOnMessage noteOnMessage)
+            {
+                msgEventType = MidiEventType.NOTEONOFF;
+                msgChannel = noteOnMessage.Note;
+                msgValue = noteOnMessage.Velocity;
+                msgModeDesc = "Note On/Off";
+                msgModeSpec = "Note";
+            }
+            if (receivedMidiMessage is MidiNoteOffMessage noteOffMessage)
+            {
+                msgEventType = MidiEventType.NOTEONOFF;
+                msgChannel = noteOffMessage.Note;
+                msgValue = 0;
+                msgModeDesc = "Note On/Off";
+                msgModeSpec = "Note";
+            }
+
+            if (msgEventType == MidiEventType.NONE)
+            {
+                return;
+            }
+
+            if (_capturingMidiInput1 == true)
+            {
+                if ((msgChannel != _currentMidiTriggerChannel2) ||
+                    (msgEventType != _currentMidiTriggerEvent2))
+                {
+                    _currentMidiTriggerChannel1 = msgChannel;
+                    _currentMidiTriggerEvent1 = msgEventType;
+                    _debounceActivateInput1 = (byte)(_maxValues[((int)msgEventType)] - _triggerThreshold);
+                    _debounceDeactivateInput1 = (byte)(_minValues[((int)msgEventType)] + _triggerThreshold);
+                    _displayString1 = msgModeDesc + ", " + msgModeSpec + ": " + _currentMidiTriggerChannel1;
+
+                    WriteSettings();
+                    SetDisplayStrings();
+
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        Log("Input 1 set to Event " + _displayString1);
+                        InputIndicator1.Fill = _activeBrush;
+                        TextBlockInputValue1.Text = "" + msgValue;
+                    });
+
+                    _capturingMidiInput1 = false;
+                    return;
+                }
+            }
+
+            if (_capturingMidiInput2 == true)
+            {
+                if ((msgChannel != _currentMidiTriggerChannel1) ||
+                    (msgEventType != _currentMidiTriggerEvent1))
+                {
+                    _currentMidiTriggerChannel2 = msgChannel;
+                    _currentMidiTriggerEvent2 = msgEventType;
+                    _debounceActivateInput2 = (byte)(_maxValues[((int)msgEventType)] - _triggerThreshold);
+                    _debounceDeactivateInput2 = (byte)(_minValues[((int)msgEventType)] + _triggerThreshold);
+                    _displayString2 = msgModeDesc + ", " + msgModeSpec + ": " + _currentMidiTriggerChannel2;
+
+                    WriteSettings();
+                    SetDisplayStrings();
+
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        Log("Input 2 set to Event " + _displayString2);
+                        InputIndicator2.Fill = _activeBrush;
+                        TextBlockInputValue2.Text = "" + msgValue;
+                    });
+
+                    _capturingMidiInput2 = false;
+                    return;
+                }
+            }
+
+            // determine which input is pressed
+            bool inputPressed1 = false;
+            bool inputPressed2 = false;
+
+            var pageTurnKeys = _currentPageTurnKey1;
+
+            // message fits first input setup
+            if (msgEventType == _currentMidiTriggerEvent1 &&
+                msgChannel == _currentMidiTriggerChannel1)
+            {
+                if (msgValue > _debounceActivateInput1)
+                {
+                    inputPressed1 = true;
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        InputIndicator1.Fill = _activeBrush;
+                        TextBlockInputValue1.Text = "" + msgValue;
+                    });
+                }
+                else if (msgValue < _debounceDeactivateInput1)
+                {
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        InputIndicator1.Fill = _inactiveBrush;
+                        TextBlockInputValue1.Text = "" + msgValue;
+                    });
+                }
+            }
+
+            // message fits second input setup
+            if (msgEventType == _currentMidiTriggerEvent2 &&
+                msgChannel == _currentMidiTriggerChannel2)
+            {
+                if (msgValue > _debounceActivateInput2)
+                {
+                    inputPressed2 = true;
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        InputIndicator2.Fill = _activeBrush;
+                        TextBlockInputValue2.Text = "" + msgValue;
+                    });
+                }
+                else if (msgValue < _debounceDeactivateInput2)
+                {
+                    await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        InputIndicator2.Fill = _inactiveBrush;
+                        TextBlockInputValue2.Text = "" + msgValue;
+                    });
+                }
+            }
+
+            // Cooldown only concerns actual page turns
+            if (inputPressed1 == false && inputPressed2 == false ||
+               DateTime.Now - _lastTriggerTime < _cooldown)
+            {
+                return;
+            }
 
             _lastTriggerTime = DateTime.Now;
 
-            foreach (var key in pageTurnKeys)
+            if (inputPressed1 == true)
             {
-                _inputInjector.InjectKeyboardInput(new[] { new InjectedInputKeyboardInfo
+                pageTurnKeys = _currentPageTurnKey1;
+            }
+            if (inputPressed2 == true)
+            {
+                pageTurnKeys = _currentPageTurnKey2;
+            }
+
+            // Do the actual page turn
+            {
+                foreach (var key in pageTurnKeys)
+                {
+                    _inputInjector.InjectKeyboardInput(new[] { new InjectedInputKeyboardInfo
                 {
                     VirtualKey = (ushort)key,
                     KeyOptions = InjectedInputKeyOptions.ExtendedKey
                 }});
-            }
+                }
 
-            // release keys again
-            foreach (var key in pageTurnKeys.Reverse())
-            {
-                _inputInjector.InjectKeyboardInput(new[] { new InjectedInputKeyboardInfo
+                // release keys again
+                foreach (var key in pageTurnKeys.Reverse())
+                {
+                    _inputInjector.InjectKeyboardInput(new[] { new InjectedInputKeyboardInfo
                 {
                     VirtualKey = (ushort)key,
                     KeyOptions = InjectedInputKeyOptions.KeyUp
                 }});
+                }
             }
         }
         private async void StartButton_Click(object sender, RoutedEventArgs e)
@@ -163,10 +350,6 @@ namespace MidiPageTurner
             }
 
             Log("Obtaining MIDI information on selected device");
-            _currentMidiTrigger1 = _midiTriggerOptions[MidiTriggerListBox1.SelectedIndex];
-            _currentMidiTrigger2 = _midiTriggerOptions[MidiTriggerListBox2.SelectedIndex];
-            _currentPageTurnKey1 = _pageTurnKeyOptions1[PageTurnKeyListBox1.SelectedIndex];
-            _currentPageTurnKey2 = _pageTurnKeyOptions2[PageTurnKeyListBox2.SelectedIndex];
 
             var deviceInformationCollection = DeviceInformationCollection;
             var devInfo = deviceInformationCollection?[MidiInListBox.SelectedIndex];
@@ -218,24 +401,6 @@ namespace MidiPageTurner
             StartButton.IsEnabled = MidiInListBox.SelectedIndex >= 0;
         }
 
-        private void MidiTriggerListBox1_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (MidiTriggerListBox2 != null && MidiTriggerListBox2.SelectedIndex == MidiTriggerListBox1.SelectedIndex)
-            {
-                MidiTriggerListBox2.SelectedIndex =
-                    (MidiTriggerListBox2.SelectedIndex + 1) % MidiTriggerListBox2.Items.Count;
-            }
-        }
-
-        private void MidiTriggerListBox2_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (MidiTriggerListBox1.SelectedIndex == MidiTriggerListBox2.SelectedIndex)
-            {
-                MidiTriggerListBox1.SelectedIndex =
-                    (MidiTriggerListBox1.SelectedIndex + 1) % MidiTriggerListBox1.Items.Count;
-            }
-        }
-
         private async void Log(string text)
         {
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
@@ -253,6 +418,143 @@ namespace MidiPageTurner
             badgeElement.SetAttribute("value", badgeGlyphValue);
             var badge = new BadgeNotification(badgeXml);
             BadgeUpdateManager.CreateBadgeUpdaterForApplication().Update(badge);
+        }
+
+        private void CaptureButton1Clicked(object sender, RoutedEventArgs e)
+        {
+            if (_capturingMidiInput2 == true)
+            {
+                _capturingMidiInput2 = false;
+                _currentMidiTriggerChannel2 = 0;
+                _currentMidiTriggerEvent2 = MidiEventType.NONE;
+                _debounceActivateInput2 = 0;
+                _debounceDeactivateInput2 = 0;
+                _displayString2 = "No Input Selected.";
+            }
+
+            _currentMidiTriggerChannel1 = 0;
+            _currentMidiTriggerEvent1 = MidiEventType.NONE;
+            _debounceActivateInput1 = 0;
+            _debounceDeactivateInput1 = 0;
+            _displayString1 = "Capturing...";
+
+            WriteSettings();
+            SetDisplayStrings();
+
+            _capturingMidiInput1 = true;
+        }
+
+        private void CaptureButton2Clicked(object sender, RoutedEventArgs e)
+        {
+            if (_capturingMidiInput1 == true)
+            {
+                _capturingMidiInput1 = false;
+                _currentMidiTriggerChannel1 = 0;
+                _currentMidiTriggerEvent1 = MidiEventType.NONE;
+                _debounceActivateInput1 = 0;
+                _debounceDeactivateInput1 = 0;
+                _displayString1 = "No Input Selected.";
+            }
+
+            _currentMidiTriggerChannel2 = 0;
+            _currentMidiTriggerEvent2 = MidiEventType.NONE;
+            _debounceActivateInput2 = 0;
+            _debounceDeactivateInput2 = 0;
+            _displayString2 = "Capturing...";
+
+            WriteSettings();
+            SetDisplayStrings();
+
+            _capturingMidiInput2 = true;
+        }
+
+        private void PageTurnKeyListBox1_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _currentPageTurnKey1 = _pageTurnKeyOptions1[PageTurnKeyListBox1.SelectedIndex];
+        }
+
+        private void PageTurnKeyListBox2_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _currentPageTurnKey2 = _pageTurnKeyOptions2[PageTurnKeyListBox1.SelectedIndex];
+        }
+
+        private byte LoadByte(String setting)
+        {
+            byte result = 0;
+            string s = _LocalSettings.Values[setting] as string;
+            if (!String.IsNullOrEmpty(s))
+                result = byte.Parse(s);
+            return result;
+        }
+
+        private String LoadString(String setting)
+        {
+            String result = "";
+            string s = _LocalSettings.Values[setting] as string;
+            if (!String.IsNullOrEmpty(s))
+                result = s;
+            return result;
+        }
+
+        private async void SetDisplayStrings()
+        {
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                TextBlockMidiEvent1.Text = _displayString1;
+                TextBlockMidiEvent2.Text = _displayString2;
+            });
+        }
+
+        private void WriteSettings()
+        {
+            _LocalSettings.Values["_currentMidiTriggerChannel1"] = "" + _currentMidiTriggerChannel1;
+            _LocalSettings.Values["_currentMidiTriggerEvent1"] = "" + (byte)_currentMidiTriggerEvent1;
+            _LocalSettings.Values["_debounceActivateInput1"] = "" + _debounceActivateInput1;
+            _LocalSettings.Values["_debounceDeactivateInput1"] = "" + _debounceDeactivateInput1;
+            _LocalSettings.Values["_displayString1"] = _displayString1;
+
+            _LocalSettings.Values["_currentMidiTriggerChannel2"] = "" + _currentMidiTriggerChannel2;
+            _LocalSettings.Values["_currentMidiTriggerEvent2"] = "" + (byte)_currentMidiTriggerEvent2;
+            _LocalSettings.Values["_debounceActivateInput2"] = "" + _debounceActivateInput2;
+            _LocalSettings.Values["_debounceDeactivateInput2"] = "" + _debounceDeactivateInput2;
+            _LocalSettings.Values["_displayString2"] = _displayString2;
+        }
+
+        private void LoadSettings()
+        {
+            try
+            {
+                _currentMidiTriggerChannel1 = LoadByte("_currentMidiTriggerChannel1");
+                _currentMidiTriggerEvent1 = (MidiEventType)LoadByte("_currentMidiTriggerEvent1");
+                _debounceActivateInput1 = LoadByte("_debounceActivateInput1");
+                _debounceDeactivateInput1 = LoadByte("_debounceDeactivateInput1");
+                _displayString1 = LoadString("_displayString1");
+
+                _currentMidiTriggerChannel2 = LoadByte("_currentMidiTriggerChannel2");
+                _currentMidiTriggerEvent2 = (MidiEventType)LoadByte("_currentMidiTriggerEvent2");
+                _debounceActivateInput2 = LoadByte("_debounceActivateInput2");
+                _debounceDeactivateInput2 = LoadByte("_debounceDeactivateInput2");
+                _displayString2 = LoadString("_displayString2");
+            } catch (FormatException e)
+            {
+                Log("Saved settings invalid, resetting.");
+                ResetSettings();
+            }
+        }
+
+        private void ResetSettings()
+        {
+            _LocalSettings.Values["_currentMidiTriggerChannel1"] = "";
+            _LocalSettings.Values["_currentMidiTriggerEvent1"] = "";
+            _LocalSettings.Values["_debounceActivateInput1"] = "";
+            _LocalSettings.Values["_debounceDeactivateInput1"] = "";
+            _LocalSettings.Values["_displayString1"] = "";
+
+            _LocalSettings.Values["_currentMidiTriggerChannel2"] = "";
+            _LocalSettings.Values["_currentMidiTriggerEvent2"] = "";
+            _LocalSettings.Values["_debounceActivateInput2"] = "";
+            _LocalSettings.Values["_debounceDeactivateInput2"] = "";
+            _LocalSettings.Values["_displayString2"] = "";
         }
     }
 }

@@ -24,8 +24,8 @@
     <AppxBundle>Always</AppxBundle>
     <AppxBundlePlatforms>x86|x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <PackageCertificateThumbprint>72F460782C68E9116596F63C56A720650C0DBCCA</PackageCertificateThumbprint>
-    <PackageCertificateKeyFile />
+    <PackageCertificateThumbprint>99D7C04EC790E08E0102969990525982E5BF3994</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>MidiPageTurner_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
@@ -139,8 +139,6 @@
     </AppxManifest>
   </ItemGroup>
   <ItemGroup>
-    <None Include="MidiPageTurner_TemporaryKey.pfx" />
-    <None Include="Package.StoreAssociation.xml" />
     <Content Include="Assets\AppIcon.altform-lightunplated_targetsize-16.png" />
     <Content Include="Assets\AppIcon.altform-lightunplated_targetsize-256.png" />
     <Content Include="Assets\AppIcon.altform-lightunplated_targetsize-48.png" />
@@ -188,7 +186,9 @@
       <Version>6.2.12</Version>
     </PackageReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="MidiPageTurner_TemporaryKey.pfx" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

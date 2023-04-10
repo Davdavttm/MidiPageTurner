@@ -9,7 +9,7 @@
 
   <Identity
     Name="1226JacobZhang.MIDIPageTurner"
-    Publisher="CN=A2923856-2932-41EC-9251-D970F23A4DBB"
+    Publisher="CN=David Mezlaf"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="856cf8f6-8d82-4e10-aff4-c747ddce7599" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
