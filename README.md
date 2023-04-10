@@ -2,6 +2,9 @@
 
 With the original project by jacbz, 
 I made and still make some customization to hopefully make this app usable with any MIDI device sending MIDI Note on/off or Control Change messages.
+<p align="center">
+  <img src="https://github.com/Davdavttm/MidiPageTurner/blob/master/app_overview.png?raw=true" width="400px"/>
+</p>
 
 ## Getting started
 
